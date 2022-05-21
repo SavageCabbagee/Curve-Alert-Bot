@@ -1,8 +1,8 @@
 var sqlite3 = require("sqlite3").verbose();
 var db = new sqlite3.Database("database.db");
 
-db.run("CREATE TABLE IF NOT EXISTS threepool (id INTEGER NOT NULL PRIMARY KEY, chatid varchar(255) NOT NULL, token0 int NOT NULL, token1 int NOT NULL, token2 int NOT NULL, triggered int NOT NULL)");
-db.run("CREATE TABLE IF NOT EXISTS alerts (id INTEGER NOT NULL PRIMARY KEY, poolid TEXT, chatid varchar(255) NOT NULL, token0 int NOT NULL, token1 int NOT NULL, triggered int NOT NULL)");
+db.run("CREATE TABLE IF NOT EXISTS threepool (id INTEGER NOT NULL PRIMARY KEY, chatid varchar(255) NOT NULL, token0 int, token1 int, token2 int, triggered int NOT NULL)");
+db.run("CREATE TABLE IF NOT EXISTS alerts (id INTEGER NOT NULL PRIMARY KEY, poolid TEXT, chatid varchar(255) NOT NULL, token0 int, token1 int, triggered int NOT NULL)");
 /*
 const yes = db.all("SELECT * FROM alerts where poolid = $pool", {
   $pool: 'usdd'
