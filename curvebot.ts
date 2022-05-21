@@ -58,7 +58,7 @@ class pool {
                 bot.sendMessage(rows[i].chatid, `Alert for ${this.pool_name} triggered! ${this.pool_name} is above ${rows[i].token0}%`)
                 sqlite.updateAlert(rows[i].id, 1)
               }
-            } else if (token1_per > rows[i].token0 && rows[i].token1 != 0) {
+            } else if (token1_per > rows[i].token1 && rows[i].token1 != 0) {
               if (this.pool_name == 'steth') {
                 bot.sendMessage(rows[i].chatid, `Alert for stETH triggered! stETH is above ${rows[i].token1}%`)
                 sqlite.updateAlert(rows[i].id, 1)
@@ -78,10 +78,10 @@ class pool {
               }
             } else if (token1_per < rows[i].token1 && rows[i].token1 != 0) {
               if (this.pool_name == 'steth') {
-                bot.sendMessage(rows[i].chatid, `Alert for stETH triggered! stETH is below ${rows[i].token0}%`)
+                bot.sendMessage(rows[i].chatid, `Alert for stETH triggered! stETH is below ${rows[i].token1}%`)
                 sqlite.updateAlert(rows[i].id, 0)
               } else {
-                bot.sendMessage(rows[i].chatid, `Alert for ${this.pool_name} triggered! 3CRV is below ${rows[i].token0}%`)
+                bot.sendMessage(rows[i].chatid, `Alert for ${this.pool_name} triggered! 3CRV is below ${rows[i].token1}%`)
                 sqlite.updateAlert(rows[i].id, 0)
               }
             }
@@ -151,10 +151,10 @@ class threepool {
           if (token0_per > rows[i].token0 && rows[i].token0 != 0) {
             bot.sendMessage(rows[i].chatid, `Alert for 3pool triggered! DAI is above ${rows[i].token0}%`)
             sqlite.update3poolAlert(rows[i].id, 1)
-          } else if (token1_per > rows[i].token0 && rows[i].token1 != 0) {
+          } else if (token1_per > rows[i].token1 && rows[i].token1 != 0) {
             bot.sendMessage(rows[i].chatid, `Alert for 3pool triggered! USDC is above ${rows[i].token1}%`)
             sqlite.update3poolAlert(rows[i].id, 1)
-          } else if (token2_per > rows[i].token0 && rows[i].token2 != 0) {
+          } else if (token2_per > rows[i].token2 && rows[i].token2 != 0) {
             bot.sendMessage(rows[i].chatid, `Alert for 3pool triggered! USDT is above ${rows[i].token2}%`)
             sqlite.update3poolAlert(rows[i].id, 1)
           }
@@ -336,8 +336,3 @@ bot.on('/getalert',msg => {
 });
 
 bot.start();
-
-
-
-
-
