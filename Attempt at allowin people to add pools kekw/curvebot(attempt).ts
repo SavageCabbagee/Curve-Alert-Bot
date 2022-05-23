@@ -2,20 +2,15 @@ const ethers = require("ethers");
 const TeleBot = require("telebot");
 var sqlite = require("./modules/sqlite");
 
-const RPC = new ethers.providers.JsonRpcProvider("");
-const balance_ABI = [
+const RPC = new ethers.providers.JsonRpcProvider("https://eth-mainnet.alchemyapi.io/v2/FL1ROrwlt725zM099BqijvuuP8W63FYE");
+
+const balance_API = [
   {"inputs":[{"type":"uint256","name":"arg0"}],"name":"balances","outputs":[{"type":"uint256","name":""}],"stateMutability":"view","type":"function"},
   {"inputs":[{"type":"uint256","name":"arg0"}],"name":"coins","outputs":[{"type":"address","name":""}],"stateMutability":"view","type":"function"}
 ];
 
-const renBTC_ABI =  [
-  {"inputs":[{"type":"int128","name":"arg0"}],"name":"coins","outputs":[{"type":"address","name":""}],"constant":true,"payable":false,"type":"function"},
-  {"inputs":[{"type":"int128","name":"arg0"}],"name":"balances","outputs":[{"type":"uint256","name":""}],"constant":true,"payable":false,"type":"function"}
-];
-
-const token_ABI = [
-  {"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},
-  {"inputs":[],"stateMutability":"view","name":"decimals","outputs":[{"type":"uint256","name":""}],"type":"function"}
+const token_API = [
+  {"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"}
 ]
 
 class pool {
@@ -29,76 +24,52 @@ class pool {
     contract_addy;
     filter;
     lasttxn;
-    token0_decimal;
-    token1_decimal;
     constructor(pool_name, contract) {
       this.contract_addy = contract;
-      if (contract == '0x93054188d876f558f4a66B2EF1d97d16eDf0895B') {
-        this.contract = new ethers.Contract(
-          contract,
-          renBTC_ABI,
-          RPC
-        );
-      } else {
-        this.contract = new ethers.Contract(
-          contract,
-          balance_ABI,
-          RPC
-        );
-      }
-      
+      this.contract = new ethers.Contract(
+        contract,
+        balance_API,
+        RPC
+      );
       this.pool_name = pool_name.toLowerCase();
 
       this.token0 = (this.contract.coins(0)).then(
         value => {
           if (value == '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
             this.token0 = 'ETH';
-            this.token0_decimal = 18;
             return;
           };
           console.log(value)
-          let token0_contract = new ethers.Contract(
+          let token_contract = new ethers.Contract(
             String(value),
-            token_ABI,
+            token_API,
             RPC
           );
-          this.token0 = (token0_contract.symbol()).then(
+          this.token0 = (token_contract.symbol()).then(
             value => {
               this.token0 = value;
               console.log(this.token0);
             }
           );
-          this.token0_decimal = (token0_contract.decimals()).then(
-            value => {
-              this.token0_decimal = Number(value);
-            }
-          )
         });
 
       this.token1 = (this.contract.coins(1)).then(
         value => {
           if (value == '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') {
-            this.token1 = 'ETH';
-            this.token1_decimal = 18;
+            this.token0 = 'ETH';
             return;
           };
-          let token1_contract = new ethers.Contract(
+          let token_contract = new ethers.Contract(
             String(value),
-            token_ABI,
+            token_API,
             RPC
           );
-          this.token1 = (token1_contract.symbol()).then(
+          this.token1 = (token_contract.symbol()).then(
             value => {
               this.token1 = value;
               console.log(this.token1);
             }
           );
-          this.token1_decimal = (token1_contract.decimals()).then(
-            value => {
-              this.token1_decimal = Number(value);
-              console.log(this.token1_decimal)
-            }
-          )
         });
 
       
@@ -107,8 +78,8 @@ class pool {
     }
 
     async update_balance() {
-      this.token0_bal = Number(await this.contract.balances(0)) / 10**(await this.token0_decimal);
-      this.token1_bal = Number(await this.contract.balances(1)) / 10**(await this.token1_decimal);
+      this.token0_bal = Number(await this.contract.balances(0)) / 10**18;
+      this.token1_bal = Number(await this.contract.balances(1)) / 10**18;
       var total = this.token0_bal + this.token1_bal;
       var token0_per = (this.token0_bal / total * 100).toFixed(2);
       var token1_per = (this.token1_bal / total * 100).toFixed(2);
@@ -159,10 +130,6 @@ class pool {
 
 class threepool {
   pool_name;
-  token0;
-  token1;
-  token0_decimal;
-  token1_decimal;
   token0_bal;
   token1_bal;
   token2_bal;
@@ -180,7 +147,7 @@ class threepool {
     this.ratio = ratio;
     this.contract = new ethers.Contract(
       contract,
-      balance_ABI,
+      balance_API,
       RPC
     );
     this.filter = {address: contract};
@@ -248,36 +215,22 @@ class threepool {
 };
 
 const three_pool = new threepool('3pool',0,0,0,[0,0,0],'0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7');
-var wait_for_update = setTimeout(() => {
-  three_pool.update_balance();;
-}, 5000);
-three_pool.listen();
+//three_pool.update_balance()
+//three_pool.listen();
 
 const frax_pool = new pool('frax','0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B');
-var wait_for_update = setTimeout(() => {
-  frax_pool.update_balance();;
-}, 5000);
-frax_pool.listen();
+//frax_pool.update_balance()
+//frax_pool.listen();
 
 const steth_pool = new pool('steth','0xDC24316b9AE028F1497c275EB9192a3Ea0f67022');
-var wait_for_update = setTimeout(() => {
-  steth_pool.update_balance();;
-}, 5000);
-steth_pool.listen();
+//steth_pool.update_balance()
+//steth_pool.listen();
 
 const usdd_pool = new pool('usdd','0xe6b5cc1b4b47305c58392ce3d359b10282fc36ea');
-var wait_for_update = setTimeout(() => {
-  usdd_pool.update_balance();;
-}, 5000);
-usdd_pool.listen();
+//usdd_pool.update_balance()
+//usdd_pool.listen();
 
-const renBTC_pool = new pool('renBTC', '0x93054188d876f558f4a66B2EF1d97d16eDf0895B');
-var wait_for_update = setTimeout(() => {
-  renBTC_pool.update_balance();;
-}, 5000);
-renBTC_pool.listen();
-
-let current_pools = [frax_pool,usdd_pool,steth_pool,renBTC_pool];
+var current_pools = [three_pool,frax_pool,steth_pool,usdd_pool];
 
 async function addAlert(poolid, chatid, token0, token1, token2) {
   if (poolid == '3pool') {
@@ -296,34 +249,28 @@ async function removeAlert(poolid, chatid) {
   }
 };
 
-const bot = new TeleBot('');
+function addPool(poolname, contract){
+  for (let i =0; i<current_pools.length; i++) {
+    var a_pool = current_pools[i]
+    if (a_pool.contract_addy == contract) {
+      console.log(`Pool already added, pool name is ${a_pool.pool_name}`);
+      return;
+    }
+  }
+  sqlite.addPool(poolname.toLowerCase(),contract);
+  let new_pool = new pool(poolname, contract);
+    
+}
 
+addPool('renBTC','0x93054188d876f558f4a66B2EF1d97d16eDf0895B');
+addPool('renBTC','0x93054188d876f558f4a66B2EF1d97d16eDf0895B');
+addPool('renBTC','0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B');
+
+const bot = new TeleBot('5392288525:AAH8YCZ0dwWzaaFkwlfy8AUOAsb96QF8CQE');
+/*
 bot.on('/reserves', msg => {
   let id = msg.chat.id;
   let text = msg.text.slice(10).toLowerCase();
-  if (text == '3pool') {
-    return bot.sendMessage(id, 
-      `DAI: ${three_pool.token0_bal.toLocaleString()} (${three_pool.ratio[0]}%)\nUSDC: ${three_pool.token1_bal.toLocaleString()} (${three_pool.ratio[1]}%)\nUSDT: ${three_pool.token2_bal.toLocaleString()} (${three_pool.ratio[2]}%)`);
-  }
-  for (let i =0; i<current_pools.length; i++) {
-    var a_pool = current_pools[i]
-    if (a_pool.pool_name == text) {
-      return bot.sendMessage(id,
-        `${a_pool.token0}: ${a_pool.token0_bal.toLocaleString()} (${a_pool.ratio[0]}%)\n${a_pool.token1}: ${a_pool.token1_bal.toLocaleString()} (${a_pool.ratio[1]}%)`)
-      }
-    }
-  if (text == '') {
-    let message = [`DAI: ${three_pool.token0_bal.toLocaleString()} (${three_pool.ratio[0]}%)\nUSDC: ${three_pool.token1_bal.toLocaleString()} (${three_pool.ratio[1]}%)\nUSDT: ${three_pool.token2_bal.toLocaleString()} (${three_pool.ratio[2]}%)`];
-    for (let i =0; i<current_pools.length; i++) {
-      message.push(`${current_pools[i].token0}: ${current_pools[i].token0_bal.toLocaleString()} (${current_pools[i].ratio[0]}%)\n${current_pools[i].token1}: ${current_pools[i].token1_bal.toLocaleString()} (${current_pools[i].ratio[1]}%)`)
-    }
-    var message_sent = message.join('\n\n');
-    return bot.sendMessage(id, message_sent);
-  } else {
-    return bot.sendMessage(id, 
-      `Sorry, not recognized\nCurrent recognized pools are:\n3pool\nFRAX\nUSDD\nstETH\nrenBTC`);
-  }
-  /*
   if (text == 'usdd') {
     return bot.sendMessage(id, 
       `USDD: ${usdd_pool.token0_bal.toLocaleString()} (${usdd_pool.ratio[0]}%)\n3CRV: ${usdd_pool.token1_bal.toLocaleString()} (${usdd_pool.ratio[1]}%)`);
@@ -343,7 +290,6 @@ bot.on('/reserves', msg => {
     return bot.sendMessage(id, 
       `Sorry, not recognized\nCurrent recognized pools are:\n3pool\nFRAX\nUSDD\nstETH`);
   }
-  */
 });
 
 bot.on('/addalert',msg => {
@@ -410,7 +356,6 @@ bot.on('/getalert',msg => {
         return bot.sendMessage(id, message_sent);  
       });
     } else {
-      text = text.toLowerCase();
       sqlite.getAlerts(text, function(rows) {
         for (let i =0; i<rows.length; i++) {
           if (rows[i].chatid == id) {
@@ -433,3 +378,76 @@ bot.on('/getalert',msg => {
 });
 
 bot.start();
+
+
+
+
+
+
+/*
+const frax_pool = new ethers.Contract(
+    '0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B',
+    balance_API,
+    RPC
+  );
+
+const lusd_pool = new ethers.Contract(
+  '0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA',
+  balance_API,
+  RPC
+);
+
+async function frax_balance() {
+    var frax = await frax_pool.balances(0);
+    var three_pool = await frax_pool.balances(1);
+    frax = Number(frax) / 10**18;
+    three_pool = Number(three_pool) / 10**18;
+    var total = frax + three_pool;
+    var frax_per = (frax / total * 100).toFixed(2);
+    var three_per = (three_pool / total * 100).toFixed(2);
+    var ratio = [frax_per, three_per];
+    console.log( 
+      'Frax: ' + frax.toLocaleString() + '(' + frax_per + '%)' +
+      '\n3CRV: ' + three_pool.toLocaleString() + '(' + three_per + '%)' +
+      '\nratio: ' + ratio[0] + ',' + ratio[1]
+    )      
+};
+
+async function lusd_balance() {
+  var lusd = await lusd_pool.balances(0);
+  var three_pool = await lusd_pool.balances(1);
+  lusd = Number(lusd) / 10**18;
+  three_pool = Number(three_pool) / 10**18;
+  var total = lusd + three_pool;
+  var lusd_per = (lusd / total * 100).toFixed(2);
+  var three_per = (three_pool / total * 100).toFixed(2);
+  var ratio = [lusd_per, three_per];
+  console.log( 
+    'LUSD: ' + lusd.toLocaleString() + '(' + lusd_per + '%)' +
+    '\n3CRV: ' + three_pool.toLocaleString() + '(' + three_per + '%)' +
+    '\nratio: ' + ratio[0] + ',' + ratio[1]
+  )      
+};
+
+//frax_balance();
+//lusd_balance();
+*/
+
+/*
+const res = sqlite.getAlerts('frax', function(rows) {
+  for (let i =0; i<rows.length; i++) {
+    console.log(rows[i].chatid)
+  }
+});
+const res = sqlite.addAlert('frax', '23',60,40);
+const res = sqlite.removeAlert('frax', '4444');
+const res = sqlite.add3poolAlert('23',60,20,20);
+const res = sqlite.get3poolAlerts(function(rows) {
+  for (let i =0; i<rows.length; i++) {
+    console.log(rows[i].chatid)
+  }
+});
+const res = sqlite.remove3poolAlert('23');
+const res = sqlite.updateAlert('usdd','2',0);
+const res1 = sqlite.update3poolAlert('23',1);
+*/
