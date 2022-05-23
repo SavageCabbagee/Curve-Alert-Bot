@@ -3,14 +3,17 @@ const TeleBot = require("telebot");
 var sqlite = require("./modules/sqlite");
 
 const RPC = new ethers.providers.JsonRpcProvider("");
+
 const balance_ABI = [
   {"inputs":[{"type":"uint256","name":"arg0"}],"name":"balances","outputs":[{"type":"uint256","name":""}],"stateMutability":"view","type":"function"},
-  {"inputs":[{"type":"uint256","name":"arg0"}],"name":"coins","outputs":[{"type":"address","name":""}],"stateMutability":"view","type":"function"}
+  {"inputs":[{"type":"uint256","name":"arg0"}],"name":"coins","outputs":[{"type":"address","name":""}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"type":"int128","name":"i"},{"type":"int128","name":"j"},{"type":"uint256","name":"dx"}],"name":"get_dy","outputs":[{"type":"uint256","name":""}],"stateMutability":"view","type":"function"}
 ];
 
 const renBTC_ABI =  [
   {"inputs":[{"type":"int128","name":"arg0"}],"name":"coins","outputs":[{"type":"address","name":""}],"constant":true,"payable":false,"type":"function"},
-  {"inputs":[{"type":"int128","name":"arg0"}],"name":"balances","outputs":[{"type":"uint256","name":""}],"constant":true,"payable":false,"type":"function"}
+  {"inputs":[{"type":"int128","name":"arg0"}],"name":"balances","outputs":[{"type":"uint256","name":""}],"constant":true,"payable":false,"type":"function"},
+  {"inputs":[{"type":"int128","name":"i"},{"type":"int128","name":"j"},{"type":"uint256","name":"dx"}],"name":"get_dy","outputs":[{"type":"uint256","name":""}],"constant":true,"payable":false,"type":"function"}
 ];
 
 const token_ABI = [
@@ -31,6 +34,7 @@ class pool {
     lasttxn;
     token0_decimal;
     token1_decimal;
+    swap_price;
     constructor(pool_name, contract) {
       this.contract_addy = contract;
       if (contract == '0x93054188d876f558f4a66B2EF1d97d16eDf0895B') {
@@ -116,6 +120,7 @@ class pool {
       console.log(this.token0_bal);
       console.log(this.token1_bal);
       console.log(this.ratio);
+      this.swap_price = Number(await this.contract.get_dy(0,1,String(10**(this.token0_decimal)))) / 10**(await this.token1_decimal);
 
       sqlite.getAlerts(this.pool_name, (rows) => {
         for (let i =0; i<rows.length; i++) {
@@ -293,7 +298,7 @@ async function removeAlert(poolid, chatid) {
     sqlite.remove3poolAlert(chatid);
   } else {
     sqlite.removeAlert(poolid, chatid);
-  }
+  } 
 };
 
 const bot = new TeleBot('');
@@ -309,13 +314,13 @@ bot.on('/reserves', msg => {
     var a_pool = current_pools[i]
     if (a_pool.pool_name == text) {
       return bot.sendMessage(id,
-        `${a_pool.token0}: ${a_pool.token0_bal.toLocaleString()} (${a_pool.ratio[0]}%)\n${a_pool.token1}: ${a_pool.token1_bal.toLocaleString()} (${a_pool.ratio[1]}%)`)
+        `${a_pool.token0}: ${a_pool.token0_bal.toLocaleString()} (${a_pool.ratio[0]}%)\n${a_pool.token1}: ${a_pool.token1_bal.toLocaleString()} (${a_pool.ratio[1]}%)\n1 ${a_pool.token0} -> ${a_pool.swap_price} ${a_pool.token1}`)
       }
     }
   if (text == '') {
     let message = [`DAI: ${three_pool.token0_bal.toLocaleString()} (${three_pool.ratio[0]}%)\nUSDC: ${three_pool.token1_bal.toLocaleString()} (${three_pool.ratio[1]}%)\nUSDT: ${three_pool.token2_bal.toLocaleString()} (${three_pool.ratio[2]}%)`];
     for (let i =0; i<current_pools.length; i++) {
-      message.push(`${current_pools[i].token0}: ${current_pools[i].token0_bal.toLocaleString()} (${current_pools[i].ratio[0]}%)\n${current_pools[i].token1}: ${current_pools[i].token1_bal.toLocaleString()} (${current_pools[i].ratio[1]}%)`)
+      message.push(`${current_pools[i].token0}: ${current_pools[i].token0_bal.toLocaleString()} (${current_pools[i].ratio[0]}%)\n${current_pools[i].token1}: ${current_pools[i].token1_bal.toLocaleString()} (${current_pools[i].ratio[1]}%)\n1 ${current_pools[i].token0} -> ${current_pools[i].swap_price} ${current_pools[i].token1}`)
     }
     var message_sent = message.join('\n\n');
     return bot.sendMessage(id, message_sent);
