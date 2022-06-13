@@ -3,7 +3,7 @@ import asyncio
 from web3 import Web3
 
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackContext
 
 from dotenv import dotenv_values
 
@@ -62,6 +62,7 @@ class pool:
         
         self.filter = w3.eth.filter({"address": self.contract_addy})
         self.lasttxn = 0
+        print(f'{self.pool_name} started' )
 
     async def updateBalance(self):
         self.token0_bal = self.contract.caller.balances(0) / 10**self.token0_decimal
@@ -74,6 +75,8 @@ class pool:
         print(self.token0_bal)
         print(self.token1_bal)
         print(self.swap_price)
+        print(self.pool_name)
+
 
         rows = sql.getAlerts(self.pool_name)
         for row in rows:
@@ -95,7 +98,6 @@ class pool:
     async def listen(self):
         print('listening')
         while True:
-            await asyncio.sleep(0)
             for event in self.filter.get_new_entries():
                 try:
                     if (event.transactionHash.hex() == self.lasttxn):
@@ -105,6 +107,7 @@ class pool:
                     await self.updateBalance()
                 except Exception as e: 
                     print(e)
+            await asyncio.sleep(10)
 
 class threepool:
     def __init__(self, pool_name, contract, chain):
@@ -141,12 +144,14 @@ class threepool:
         
         self.filter = w3.eth.filter({"address": self.contract_addy})
         self.lasttxn = 0
+        print(f'{self.pool_name} started' )
 
     async def updateBalance(self):
         self.token0_bal = self.contract.caller.balances(0) / 10**self.token0_decimal
         self.token1_bal = self.contract.caller.balances(1) / 10**self.token1_decimal
         self.token2_bal = self.contract.caller.balances(2) / 10**self.token2_decimal
         total = self.token0_bal + self.token1_bal + self.token2_bal
+        self.virtual_price = self.contract.caller.get_virtual_price() / 10**18
         token0_per = round(self.token0_bal / total * 100, 2)
         token1_per = round(self.token1_bal / total * 100, 2)
         token2_per = round(self.token2_bal / total * 100, 2)
@@ -154,6 +159,7 @@ class threepool:
         print(self.token0_bal)
         print(self.token1_bal)
         print(self.token2_bal)
+        print(self.pool_name)
 
         rows = sql.get3poolAlerts(self.pool_name)
         for row in rows:
@@ -181,7 +187,6 @@ class threepool:
     async def listen(self):
         print('listening')
         while True:
-            await asyncio.sleep(0)
             for event in self.filter.get_new_entries():
                 try:
                     if (event.transactionHash.hex() == self.lasttxn):
@@ -191,33 +196,99 @@ class threepool:
                     await self.updateBalance()
                 except Exception as e: 
                     print(e)
+            await asyncio.sleep(10)
 
 three_pool = threepool('3pool', '0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7', 'eth')
-asyncio.run(three_pool.updateBalance())
-
-gno_pool = threepool('gno_pool', '0x7f90122BF0700F9E7e1F688fe926940E8839F353', 'gno')
-asyncio.run(gno_pool.updateBalance())
-
+gno_pool = threepool('gnopool', '0x7f90122BF0700F9E7e1F688fe926940E8839F353', 'gno')
 frax_pool = pool('frax','0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B')
-asyncio.run(frax_pool.updateBalance())
-
 steth_pool = pool('steth','0xDC24316b9AE028F1497c275EB9192a3Ea0f67022')
-asyncio.run(steth_pool.updateBalance())
-
 usdd_pool = pool('usdd','0xe6b5CC1B4b47305c58392CE3D359B10282FC36Ea')
-asyncio.run(usdd_pool.updateBalance())
+renBTC_pool = pool('renBTC', '0x93054188d876f558f4a66B2EF1d97d16eDf0895B')
+cvxCRV_pool = pool('cvxCRV', '0x9D0464996170c6B9e75eED71c68B99dDEDf279e8')
+lusd_pool = pool('LUSD', '0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA')
+mim_pool = pool('MIM', '0x5a6A4D54456819380173272A5E8E9B9904BdF41B')
+print('Pools all initialized')
 
-renBTC_pool = pool('renBTC', '0x93054188d876f558f4a66B2EF1d97d16eDf0895B');
-asyncio.run(renBTC_pool.updateBalance())
+current_pools = [frax_pool,usdd_pool,steth_pool,renBTC_pool,cvxCRV_pool,lusd_pool,mim_pool]
 
-loop = asyncio.get_event_loop()
-asyncio.set_event_loop(loop)
-asyncio.create_task(three_pool.listen())
-asyncio.create_task(gno_pool.listen())
-asyncio.create_task(frax_pool.listen())
-asyncio.create_task(steth_pool.listen())
-asyncio.create_task(usdd_pool.listen())
-asyncio.create_task(renBTC_pool.listen())
-print(loop.is_running())
-print('test')
-current_pools = [frax_pool,usdd_pool,steth_pool,renBTC_pool]
+async def start_listening(context: CallbackContext):
+    asyncio.create_task(three_pool.updateBalance())
+    asyncio.create_task(gno_pool.updateBalance())
+    asyncio.create_task(frax_pool.updateBalance())
+    asyncio.create_task(steth_pool.updateBalance())
+    asyncio.create_task(usdd_pool.updateBalance())
+    asyncio.create_task(renBTC_pool.updateBalance())
+    asyncio.create_task(cvxCRV_pool.updateBalance())
+    asyncio.create_task(lusd_pool.updateBalance())
+    asyncio.create_task(mim_pool.updateBalance())
+
+    asyncio.ensure_future(three_pool.listen())
+    asyncio.ensure_future(gno_pool.listen())
+    asyncio.ensure_future(frax_pool.listen())
+    asyncio.ensure_future(steth_pool.listen())
+    asyncio.ensure_future(usdd_pool.listen())
+    asyncio.ensure_future(renBTC_pool.listen())
+    asyncio.ensure_future(cvxCRV_pool.listen())
+    asyncio.ensure_future(lusd_pool.listen())
+    asyncio.ensure_future(mim_pool.listen())
+    print('All started listening!')
+
+async def reserves(update: Update, context: ContextTypes):
+    print(update.message.text.split(" ")[1:])
+    try:
+        text = (update.message.text.split(" ")[1:][0])
+        text = text.lower()
+        if (text == '3pool'):
+            return await update.message.reply_text( 
+                f'DAI: {three_pool.token0_bal:,} ({three_pool.ratio[0]}%)\nUSDC: {three_pool.token1_bal:,} ({three_pool.ratio[1]}%)\nUSDT: {three_pool.token2_bal:,} ({three_pool.ratio[2]}%)\n\ngnoDAI: {gno_pool.token0_bal:,} ({gno_pool.ratio[0]}%)\ngnoUSDC: {gno_pool.token1_bal:,} ({gno_pool.ratio[1]}%)\ngnoUSDT: {gno_pool.token2_bal:,} ({gno_pool.ratio[2]}%)'
+            )
+        elif (text == 'gnopool'):
+            return await update.message.reply_text( 
+                f'gnoDAI: {gno_pool.token0_bal:,} ({gno_pool.ratio[0]}%)\ngnoUSDC: {gno_pool.token1_bal:,} ({gno_pool.ratio[1]}%)\ngnoUSDT: {gno_pool.token2_bal:,} ({gno_pool.ratio[2]}%)'
+            )
+        else:
+            for pool_ in current_pools:
+                if (text == pool_.pool_name):
+                    if (pool_.token1 == '3Crv'):
+                        return await update.message.reply_text(
+                            f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}/{pool_.swap_price * three_pool.virtual_price} USD'
+                        )
+                    else:
+                        return await update.message.reply_text(
+                            f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}'
+                        )
+        message = []
+        for pool_ in current_pools:
+            message.append(pool_.pool_name)
+        return await update.message.reply_text(
+            'Sorry, not recognized\nCurrent recognized pools are:\n3pool\ngnopool\n' + '\n'.join(message)
+        )
+    except:
+        message = [
+            f'DAI: {three_pool.token0_bal:,} ({three_pool.ratio[0]}%)\nUSDC: {three_pool.token1_bal:,} ({three_pool.ratio[1]}%)\nUSDT: {three_pool.token2_bal:,} ({three_pool.ratio[2]}%)\n\ngnoDAI: {gno_pool.token0_bal:,} ({gno_pool.ratio[0]}%)\ngnoUSDC: {gno_pool.token1_bal:,} ({gno_pool.ratio[1]}%)\ngnoUSDT: {gno_pool.token2_bal:,} ({gno_pool.ratio[2]}%)'
+        ]
+        for pool_ in current_pools:
+            if (pool_.token1 == '3Crv'): 
+                message.append(f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}/{pool_.swap_price * three_pool.virtual_price} USD')
+            else: 
+                message.append(
+                            f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}'
+                        )
+        await update.message.reply_text(
+            '\n\n'.join(message)
+        )
+
+
+def main() -> None:
+    """Start the bot."""
+    # Create the Application and pass it your bot's token.
+    application = Application.builder().token(BOT_KEY).build()
+    job_queue = application.job_queue
+    # on different commands - answer in Telegram
+    application.add_handler(CommandHandler("reserves", reserves))
+    job_queue.run_once(start_listening,60)
+
+    # Run the bot until the user presses Ctrl-C
+    application.run_polling(1)
+    
+main()
