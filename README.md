@@ -1,7 +1,6 @@
 # Curve Alert Bot
  Get Curve Pool reserves and set alerts
 
-Currently only supports 3pool, FRAX, USDD, stETH/ETH
 
  ## Commands
 

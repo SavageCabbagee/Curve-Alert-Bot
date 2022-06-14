@@ -80,19 +80,20 @@ class pool:
 
         rows = sql.getAlerts(self.pool_name)
         for row in rows:
+            chat_id = row[2]
             if (row[5] == 0):
                 if (token0_per > row[3] and row[3] != 0):
-                    #sendmessage above
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token0} is above {row[3]}%')
                     sql.updateAlert(row[0], 1)
                 elif (token1_per > row[4] and row[4] != 0):
-                    #sendmessage above
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token1} is above {row[4]}%')
                     sql.updateAlert(row[0], 1)
             else:
                 if (token0_per < row[3] and row[3] != 0):
-                    #sendmessage below
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token0} is below {row[3]}%')
                     sql.updateAlert(row[0], 0)
                 elif (token1_per < row[4] and row[4] != 0):
-                    #sendmessage below
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token1} is below {row[3]}%')
                     sql.updateAlert(row[0], 0)
 
     async def listen(self):
@@ -163,26 +164,27 @@ class threepool:
 
         rows = sql.get3poolAlerts(self.pool_name)
         for row in rows:
+            chat_id = row[2]
             if (row[6] == 0):
                 if (token0_per > row[3] and row[3] != 0):
-                    #sendmessage above
-                    sql.updateAlert(row[0], 1)
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token0} is above {row[3]}%')
+                    sql.update3poolAlert(row[0], 1)
                 elif (token1_per > row[4] and row[4] != 0):
-                    #sendmessage above
-                    sql.updateAlert(row[0], 1)
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token1} is above {row[4]}%')
+                    sql.update3poolAlert(row[0], 1)
                 elif (token2_per > row[5] and row[5] != 0):
-                    #sendmessage above
-                    sql.updateAlert(row[0], 1)
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token2} is above {row[5]}%')
+                    sql.update3poolAlert(row[0], 1)
             else:
                 if (token0_per < row[3] and row[3] != 0):
-                    #sendmessage below
-                    sql.updateAlert(row[0], 0)
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token0} is below {row[3]}%')
+                    sql.update3poolAlert(row[0], 0)
                 elif (token1_per < row[4] and row[4] != 0):
-                    #sendmessage below
-                    sql.updateAlert(row[0], 0)
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token1} is below {row[3]}%')
+                    sql.update3poolAlert(row[0], 0)
                 elif (token2_per < row[5] and row[5] != 0):
-                    #sendmessage above
-                    sql.updateAlert(row[0], 0)
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token2} is below {row[3]}%')
+                    sql.update3poolAlert(row[0], 0)
 
     async def listen(self):
         print('listening')
@@ -236,48 +238,135 @@ async def start_listening(context: CallbackContext):
 async def reserves(update: Update, context: ContextTypes):
     print(update.message.text.split(" ")[1:])
     try:
-        text = (update.message.text.split(" ")[1:][0])
-        text = text.lower()
-        if (text == '3pool'):
-            return await update.message.reply_text( 
-                f'DAI: {three_pool.token0_bal:,} ({three_pool.ratio[0]}%)\nUSDC: {three_pool.token1_bal:,} ({three_pool.ratio[1]}%)\nUSDT: {three_pool.token2_bal:,} ({three_pool.ratio[2]}%)\n\ngnoDAI: {gno_pool.token0_bal:,} ({gno_pool.ratio[0]}%)\ngnoUSDC: {gno_pool.token1_bal:,} ({gno_pool.ratio[1]}%)\ngnoUSDT: {gno_pool.token2_bal:,} ({gno_pool.ratio[2]}%)'
-            )
-        elif (text == 'gnopool'):
-            return await update.message.reply_text( 
-                f'gnoDAI: {gno_pool.token0_bal:,} ({gno_pool.ratio[0]}%)\ngnoUSDC: {gno_pool.token1_bal:,} ({gno_pool.ratio[1]}%)\ngnoUSDT: {gno_pool.token2_bal:,} ({gno_pool.ratio[2]}%)'
-            )
-        else:
-            for pool_ in current_pools:
-                if (text == pool_.pool_name):
-                    if (pool_.token1 == '3Crv'):
-                        return await update.message.reply_text(
-                            f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}/{pool_.swap_price * three_pool.virtual_price} USD'
-                        )
-                    else:
-                        return await update.message.reply_text(
-                            f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}'
-                        )
+        texts = (update.message.text.split(" ")[1:])
         message = []
+        if (texts == []):
+            message = [
+            f'DAI: {three_pool.token0_bal:,} ({three_pool.ratio[0]}%)\nUSDC: {three_pool.token1_bal:,} ({three_pool.ratio[1]}%)\nUSDT: {three_pool.token2_bal:,} ({three_pool.ratio[2]}%)\n\ngnoDAI: {gno_pool.token0_bal:,} ({gno_pool.ratio[0]}%)\ngnoUSDC: {gno_pool.token1_bal:,} ({gno_pool.ratio[1]}%)\ngnoUSDT: {gno_pool.token2_bal:,} ({gno_pool.ratio[2]}%)'
+            ]
+            for pool_ in current_pools:
+                if (pool_.token1 == '3Crv'): 
+                    message.append(f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}/{pool_.swap_price * three_pool.virtual_price} USD')
+                else: 
+                    message.append(
+                        f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}'
+                    )
+            return await update.message.reply_text(
+                '\n\n'.join(message)
+            )
+        for text in texts:
+            text = text.lower()
+            if (text == '3pool'):
+                message.append( 
+                    f'DAI: {three_pool.token0_bal:,} ({three_pool.ratio[0]}%)\nUSDC: {three_pool.token1_bal:,} ({three_pool.ratio[1]}%)\nUSDT: {three_pool.token2_bal:,} ({three_pool.ratio[2]}%)\n\ngnoDAI: {gno_pool.token0_bal:,} ({gno_pool.ratio[0]}%)\ngnoUSDC: {gno_pool.token1_bal:,} ({gno_pool.ratio[1]}%)\ngnoUSDT: {gno_pool.token2_bal:,} ({gno_pool.ratio[2]}%)'
+                )
+            elif (text == 'gnopool'):
+                message.append( 
+                    f'gnoDAI: {gno_pool.token0_bal:,} ({gno_pool.ratio[0]}%)\ngnoUSDC: {gno_pool.token1_bal:,} ({gno_pool.ratio[1]}%)\ngnoUSDT: {gno_pool.token2_bal:,} ({gno_pool.ratio[2]}%)'
+            )   
+            else:
+                for pool_ in current_pools:
+                    if (text == pool_.pool_name):
+                        if (pool_.token1 == '3Crv'):
+                            message.append(
+                                f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}/{pool_.swap_price * three_pool.virtual_price} USD'
+                            )
+                        else:
+                            message.append(
+                                f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}'
+                            )
+            if text == texts[-1] and message != []:
+                return await update.message.reply_text('\n\n'.join(message))
+
         for pool_ in current_pools:
             message.append(pool_.pool_name)
         return await update.message.reply_text(
             'Sorry, not recognized\nCurrent recognized pools are:\n3pool\ngnopool\n' + '\n'.join(message)
         )
     except:
-        message = [
-            f'DAI: {three_pool.token0_bal:,} ({three_pool.ratio[0]}%)\nUSDC: {three_pool.token1_bal:,} ({three_pool.ratio[1]}%)\nUSDT: {three_pool.token2_bal:,} ({three_pool.ratio[2]}%)\n\ngnoDAI: {gno_pool.token0_bal:,} ({gno_pool.ratio[0]}%)\ngnoUSDC: {gno_pool.token1_bal:,} ({gno_pool.ratio[1]}%)\ngnoUSDT: {gno_pool.token2_bal:,} ({gno_pool.ratio[2]}%)'
-        ]
-        for pool_ in current_pools:
-            if (pool_.token1 == '3Crv'): 
-                message.append(f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}/{pool_.swap_price * three_pool.virtual_price} USD')
-            else: 
-                message.append(
-                            f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}'
-                        )
-        await update.message.reply_text(
-            '\n\n'.join(message)
-        )
+        return await update.message.reply_text('Error')
+        
 
+async def addalert(update: Update, context: ContextTypes):
+    chat_id=update.effective_chat.id
+    print(chat_id)
+    try:
+        text = (update.message.text.split(" ")[1]).split(",")
+        if len(text) > 4:
+            print('Error - too many variables')
+            return update.message.reply_text('Error - too many variables')
+        if (text[0].lower() == '3pool'):
+            if ((text[1] == '0' and text[2] == '0' ) or (text[1] == '0' and text[3] == '0') or (text[2] == '0' and text[3] == '0')):
+                sql.add3poolAlert('3pool', chat_id, text[1], text[2], text[3])
+                return await update.message.reply_text('3pool alert added!')
+            else:
+                return await update.message.reply_text('Error, 2 of the token balance must be 0!')
+        elif (text[0].lower() == 'gnopool'):
+            if ((text[1] == '0' and text[2] == '0' ) or (text[1] == '0' and text[3] == '0') or (text[2] == '0' and text[3] == '0')):
+                sql.add3poolAlert('gnopool', chat_id, text[1], text[2], text[3])
+                return await update.message.reply_text('gnopool alert added!')
+            else:
+                return await update.message.reply_text('Error, 2 of the token balance must be 0!')
+        else:
+            for pool_ in current_pools:
+                print(text)
+                if (text[0].lower() == pool_.pool_name):
+                    if ((text[1] == '0') or (text[2] == '0')):
+                        sql.addAlert(text[0], chat_id, text[1], text[2])
+                        return await update.message.reply_text(f'{text[0]} alert added!')
+                    else:
+                        return await update.message.reply_text('Error, 1 of the token balance must be 0!')
+        return await update.message.reply_text('Error, No such pool!')
+    except:
+        return await update.message.reply_text('Error!!')
+    
+async def removealert(update: Update, context: ContextTypes):
+    chat_id = update.effective_chat.id
+    print(chat_id)
+    try:
+        text = (update.message.text.split(" ")[1])
+        text = text.lower()
+        if (text == '3pool'):
+            sql.remove3poolAlert('3pool',chat_id)
+            return await update.message.reply_text('All 3pool alerts removed')
+        elif (text == 'gnopool'):
+            sql.remove3poolAlert('gnopool',chat_id)
+            return await update.message.reply_text('All gnopool alerts removed')
+        else:
+            sql.removeAlert(text,chat_id)
+            return await update.message.reply_text(f'All {text} alerts removed')
+    except:
+        return await update.message.reply_text('Error')
+
+async def getalert(update: Update, context: ContextTypes):
+    chat_id = update.effective_chat.id
+    print(chat_id)
+    try:
+        text = (update.message.text.split(" ")[1])
+        text = text.lower()
+        if (text == '3pool'):
+            message = ['Your 3pool alerts are:']
+            rows = sql.get3poolAlerts('3pool')
+            for row in rows:
+                message.append(f'DAI:{row[3]}% USDC:{row[4]}% USDT:{row[5]}%')
+            await update.message.reply_text('\n'.join(message))
+        elif (text == 'gnopool'):
+            message = ['Your gnopool alerts are:']
+            rows = sql.get3poolAlerts('gnopool')
+            for row in rows:
+                message.append(f'DAI:{row[3]}% USDC:{row[4]}% USDT:{row[5]}%')
+            await update.message.reply_text('\n'.join(message))
+        else:
+            for pool_ in current_pools:
+                if (text == pool_.pool_name):
+                    message = [f'Your {text} alerts are:']
+                    rows = sql.getAlerts(text)
+                    for row in rows:
+                        message.append(f'{pool_.token0}:{row[3]}% {pool_.token1}:{row[4]}%')
+                    return await update.message.reply_text('\n'.join(message))
+            await update.message.reply_text('Error, No such pool!')
+    except:
+        return await update.message.reply_text('Error')
 
 def main() -> None:
     """Start the bot."""
@@ -286,8 +375,12 @@ def main() -> None:
     job_queue = application.job_queue
     # on different commands - answer in Telegram
     application.add_handler(CommandHandler("reserves", reserves))
+    application.add_handler(CommandHandler("addalert", addalert))
+    application.add_handler(CommandHandler("removealert", removealert))
+    application.add_handler(CommandHandler("getalert", getalert))
     job_queue.run_once(start_listening,60)
-
+    global bot 
+    bot = application.bot
     # Run the bot until the user presses Ctrl-C
     application.run_polling(1)
     
