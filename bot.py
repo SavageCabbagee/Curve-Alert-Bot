@@ -381,13 +381,15 @@ async def getalert(update: Update, context: ContextTypes):
             message = ['Your 3pool alerts are:']
             rows = sql.get3poolAlerts('3pool')
             for row in rows:
-                message.append(f'DAI:{row[3]}% USDC:{row[4]}% USDT:{row[5]}%')
+                if row[2] == str(chat_id):
+                    message.append(f'DAI:{row[3]}% USDC:{row[4]}% USDT:{row[5]}%')
             await update.message.reply_text('\n'.join(message))
         elif (text == 'gnopool'):
             message = ['Your gnopool alerts are:']
             rows = sql.get3poolAlerts('gnopool')
             for row in rows:
-                message.append(f'DAI:{row[3]}% USDC:{row[4]}% USDT:{row[5]}%')
+                if row[2] == str(chat_id):
+                    message.append(f'DAI:{row[3]}% USDC:{row[4]}% USDT:{row[5]}%')
             await update.message.reply_text('\n'.join(message))
         else:
             for pool_ in current_pools:
@@ -395,7 +397,8 @@ async def getalert(update: Update, context: ContextTypes):
                     message = [f'Your {text} alerts are:']
                     rows = sql.getAlerts(text)
                     for row in rows:
-                        message.append(f'{pool_.token0}:{row[3]}% {pool_.token1}:{row[4]}%')
+                        if row[2] == str(chat_id):
+                            message.append(f'{pool_.token0}:{row[3]}% {pool_.token1}:{row[4]}%')
                     return await update.message.reply_text('\n'.join(message))
             await update.message.reply_text('Error, No such pool!')
     except:
