@@ -1,8 +1,8 @@
 import sqlite3
 
 con = sqlite3.connect('database.db')
-
 cur = con.cursor()
+cur.execute('pragma journal_mode=wal;')
 cur.execute("CREATE TABLE IF NOT EXISTS threepool (id INTEGER NOT NULL PRIMARY KEY, poolid TEXT, chatid varchar(255) NOT NULL, token0 int, token1 int, token2 int, triggered int NOT NULL)")
 cur.execute("CREATE TABLE IF NOT EXISTS alerts (id INTEGER NOT NULL PRIMARY KEY, poolid TEXT, chatid varchar(255) NOT NULL, token0 int, token1 int, triggered int NOT NULL)")
 con.commit()

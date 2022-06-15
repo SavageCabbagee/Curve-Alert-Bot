@@ -1,6 +1,11 @@
+
 import sqlite as sql
 import asyncio
 from web3 import Web3
+
+from threading import Thread
+from multicall import Call, Multicall
+import time 
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters, CallbackContext
@@ -65,34 +70,21 @@ class pool:
         print(f'{self.pool_name} started' )
 
     async def updateBalance(self):
-        self.token0_bal = self.contract.caller.balances(0) / 10**self.token0_decimal
-        self.token1_bal = self.contract.caller.balances(1) / 10**self.token1_decimal
-        total = self.token0_bal + self.token1_bal
-        token0_per = round(self.token0_bal / total * 100, 2)
-        token1_per = round(self.token1_bal / total * 100, 2)
-        self.ratio = [token0_per,token1_per]
-        self.swap_price = (self.contract.caller.get_dy(0,1,(10**(self.token0_decimal)))) / 10**(self.token1_decimal)
-        print(self.token0_bal)
-        print(self.token1_bal)
-        print(self.swap_price)
-        print(self.pool_name)
-
-
         rows = sql.getAlerts(self.pool_name)
         for row in rows:
             chat_id = row[2]
             if (row[5] == 0):
-                if (token0_per > row[3] and row[3] != 0):
+                if (self.token0_per > row[3] and row[3] != 0):
                     await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token0} is above {row[3]}%')
                     sql.updateAlert(row[0], 1)
-                elif (token1_per > row[4] and row[4] != 0):
+                elif (self.token1_per > row[4] and row[4] != 0):
                     await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token1} is above {row[4]}%')
                     sql.updateAlert(row[0], 1)
             else:
-                if (token0_per < row[3] and row[3] != 0):
+                if (self.token0_per < row[3] and row[3] != 0):
                     await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token0} is below {row[3]}%')
                     sql.updateAlert(row[0], 0)
-                elif (token1_per < row[4] and row[4] != 0):
+                elif (self.token1_per < row[4] and row[4] != 0):
                     await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token1} is below {row[3]}%')
                     sql.updateAlert(row[0], 0)
 
@@ -148,42 +140,28 @@ class threepool:
         print(f'{self.pool_name} started' )
 
     async def updateBalance(self):
-        self.token0_bal = self.contract.caller.balances(0) / 10**self.token0_decimal
-        self.token1_bal = self.contract.caller.balances(1) / 10**self.token1_decimal
-        self.token2_bal = self.contract.caller.balances(2) / 10**self.token2_decimal
-        total = self.token0_bal + self.token1_bal + self.token2_bal
-        self.virtual_price = self.contract.caller.get_virtual_price() / 10**18
-        token0_per = round(self.token0_bal / total * 100, 2)
-        token1_per = round(self.token1_bal / total * 100, 2)
-        token2_per = round(self.token2_bal / total * 100, 2)
-        self.ratio = [token0_per,token1_per,token2_per]
-        print(self.token0_bal)
-        print(self.token1_bal)
-        print(self.token2_bal)
-        print(self.pool_name)
-
         rows = sql.get3poolAlerts(self.pool_name)
         for row in rows:
             chat_id = row[2]
             if (row[6] == 0):
-                if (token0_per > row[3] and row[3] != 0):
+                if (self.token0_per > row[3] and row[3] != 0):
                     await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token0} is above {row[3]}%')
                     sql.update3poolAlert(row[0], 1)
-                elif (token1_per > row[4] and row[4] != 0):
+                elif (self.token1_per > row[4] and row[4] != 0):
                     await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token1} is above {row[4]}%')
                     sql.update3poolAlert(row[0], 1)
-                elif (token2_per > row[5] and row[5] != 0):
+                elif (self.token2_per > row[5] and row[5] != 0):
                     await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token2} is above {row[5]}%')
                     sql.update3poolAlert(row[0], 1)
             else:
-                if (token0_per < row[3] and row[3] != 0):
+                if (self.token0_per < row[3] and row[3] != 0):
                     await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token0} is below {row[3]}%')
                     sql.update3poolAlert(row[0], 0)
-                elif (token1_per < row[4] and row[4] != 0):
-                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token1} is below {row[3]}%')
+                elif (self.token1_per < row[4] and row[4] != 0):
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token1} is below {row[4]}%')
                     sql.update3poolAlert(row[0], 0)
-                elif (token2_per < row[5] and row[5] != 0):
-                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token2} is below {row[3]}%')
+                elif (self.token2_per < row[5] and row[5] != 0):
+                    await bot.send_message(chat_id = chat_id, text = f'Alert for {self.pool_name} triggered! {self.token2} is below {row[5]}%')
                     sql.update3poolAlert(row[0], 0)
 
     async def listen(self):
@@ -200,40 +178,96 @@ class threepool:
                     print(e)
             await asyncio.sleep(10)
 
-three_pool = threepool('3pool', '0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7', 'eth')
-gno_pool = threepool('gnopool', '0x7f90122BF0700F9E7e1F688fe926940E8839F353', 'gno')
-frax_pool = pool('frax','0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B')
-steth_pool = pool('steth','0xDC24316b9AE028F1497c275EB9192a3Ea0f67022')
-usdd_pool = pool('usdd','0xe6b5CC1B4b47305c58392CE3D359B10282FC36Ea')
-renBTC_pool = pool('renBTC', '0x93054188d876f558f4a66B2EF1d97d16eDf0895B')
-cvxCRV_pool = pool('cvxCRV', '0x9D0464996170c6B9e75eED71c68B99dDEDf279e8')
-lusd_pool = pool('LUSD', '0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA')
-mim_pool = pool('MIM', '0x5a6A4D54456819380173272A5E8E9B9904BdF41B')
-print('Pools all initialized')
+def dealwithbalance(pool_,token0,token1,swap):
+    pool_.token0_bal = token0 / 10**pool_.token0_decimal
+    pool_.token1_bal = token1 / 10**pool_.token1_decimal
+    total = pool_.token0_bal + pool_.token1_bal
+    pool_.token0_per = round(pool_.token0_bal / total * 100, 2)
+    pool_.token1_per = round(pool_.token1_bal / total * 100, 2)
+    pool_.ratio = [pool_.token0_per,pool_.token1_per]
+    pool_.swap_price = swap / 10**(pool_.token1_decimal)
+    print(pool_.token0_bal)
+    print(pool_.token1_bal)
+    print(pool_.pool_name)
 
-current_pools = [frax_pool,usdd_pool,steth_pool,renBTC_pool,cvxCRV_pool,lusd_pool,mim_pool]
 
-async def start_listening(context: CallbackContext):
-    asyncio.create_task(three_pool.updateBalance())
-    asyncio.create_task(gno_pool.updateBalance())
-    asyncio.create_task(frax_pool.updateBalance())
-    asyncio.create_task(steth_pool.updateBalance())
-    asyncio.create_task(usdd_pool.updateBalance())
-    asyncio.create_task(renBTC_pool.updateBalance())
-    asyncio.create_task(cvxCRV_pool.updateBalance())
-    asyncio.create_task(lusd_pool.updateBalance())
-    asyncio.create_task(mim_pool.updateBalance())
+def listening():
+    while True:
+        multi = Multicall([
+            Call(three_pool.contract_addy,['balances(uint256)(uint256)', 0],[['three_pooltoken0',None]]),
+            Call(three_pool.contract_addy,['balances(uint256)(uint256)', 1],[['three_pooltoken1',None]]),
+            Call(three_pool.contract_addy,['balances(uint256)(uint256)', 2],[['three_pooltoken2',None]]),
+            Call(frax_pool.contract_addy,['balances(uint256)(uint256)', 0],[['FRAXtoken0',None]]),
+            Call(frax_pool.contract_addy,['balances(uint256)(uint256)', 1],[['FRAXtoken1',None]]),
+            Call(frax_pool.contract_addy,['get_dy(int128,int128,uint256)(uint256)',0,1,int((10**(frax_pool.token0_decimal)))],[['FRAXtokenswap',None]]),
+            Call(steth_pool.contract_addy,['balances(uint256)(uint256)', 0],[['STETHtoken0',None]]),
+            Call(steth_pool.contract_addy,['balances(uint256)(uint256)', 1],[['STETHtoken1',None]]),
+            Call(steth_pool.contract_addy,['get_dy(int128,int128,uint256)(uint256)',0,1,int((10**(steth_pool.token0_decimal)))],[['STETHtokenswap',None]]),
+            Call(usdd_pool.contract_addy,['balances(uint256)(uint256)', 0],[['USDDtoken0',None]]),
+            Call(usdd_pool.contract_addy,['balances(uint256)(uint256)', 1],[['USDDtoken1',None]]),
+            Call(usdd_pool.contract_addy,['get_dy(int128,int128,uint256)(uint256)',0,1,int((10**(usdd_pool.token0_decimal)))],[['USDDtokenswap',None]]),
+            Call(cvxCRV_pool.contract_addy,['balances(uint256)(uint256)', 0],[['CVXCRVtoken0',None]]),
+            Call(cvxCRV_pool.contract_addy,['balances(uint256)(uint256)', 1],[['CVXCRVtoken1',None]]),
+            Call(cvxCRV_pool.contract_addy,['get_dy(int128,int128,uint256)(uint256)',0,1,int((10**(cvxCRV_pool.token0_decimal)))],[['CVXCRVtokenswap',None]]),
+            Call(lusd_pool.contract_addy,['balances(uint256)(uint256)', 0],[['LUSDtoken0',None]]),
+            Call(lusd_pool.contract_addy,['balances(uint256)(uint256)', 1],[['LUSDtoken1',None]]),
+            Call(lusd_pool.contract_addy,['get_dy(int128,int128,uint256)(uint256)',0,1,int((10**(lusd_pool.token0_decimal)))],[['LUSDtokenswap',None]]),
+            Call(mim_pool.contract_addy,['balances(uint256)(uint256)', 0],[['MIMtoken0',None]]),
+            Call(mim_pool.contract_addy,['balances(uint256)(uint256)', 1],[['MIMtoken1',None]]),
+            Call(mim_pool.contract_addy,['get_dy(int128,int128,uint256)(uint256)',0,1,int((10**(mim_pool.token0_decimal)))],[['MIMtokenswap',None]]),
+            Call(renBTC_pool.contract_addy,['balances(int128)(uint256)', 0],[['RENBTCtoken0',None]]),
+            Call(renBTC_pool.contract_addy,['balances(int128)(uint256)', 1],[['RENBTCtoken1',None]]),
+            Call(renBTC_pool.contract_addy,['get_dy(int128,int128,uint256)(uint256)',0,1,int((10**(renBTC_pool.token0_decimal)))],[['RENBTCtokenswap',None]])
+            ], _w3 = w3)
+        data = multi()
+        three_pool.token0_bal = data['three_pooltoken0'] / 10**three_pool.token0_decimal
+        three_pool.token1_bal = data['three_pooltoken1'] / 10**three_pool.token1_decimal
+        three_pool.token2_bal = data['three_pooltoken2'] / 10**three_pool.token2_decimal
+        total = three_pool.token0_bal + three_pool.token1_bal + three_pool.token2_bal
+        three_pool.virtual_price = three_pool.contract.caller.get_virtual_price() / 10**18
+        three_pool.token0_per = round(three_pool.token0_bal / total * 100, 2)
+        three_pool.token1_per = round(three_pool.token1_bal / total * 100, 2)
+        three_pool.token2_per = round(three_pool.token2_bal / total * 100, 2)
+        three_pool.ratio = [three_pool.token0_per,three_pool.token1_per,three_pool.token2_per]
+        print(three_pool.token0_bal)
+        print(three_pool.token1_bal)
+        print(three_pool.token2_bal)
+        print(three_pool.pool_name)
+        dealwithbalance(frax_pool, data['FRAXtoken0'], data['FRAXtoken1'], data['FRAXtokenswap'])
+        dealwithbalance(steth_pool, data['STETHtoken0'], data['STETHtoken1'], data['STETHtokenswap'])
+        dealwithbalance(usdd_pool, data['USDDtoken0'], data['USDDtoken1'], data['USDDtokenswap'])
+        dealwithbalance(cvxCRV_pool, data['CVXCRVtoken0'], data['CVXCRVtoken1'], data['CVXCRVtokenswap'])
+        dealwithbalance(lusd_pool, data['LUSDtoken0'], data['LUSDtoken1'], data['LUSDtokenswap'])
+        dealwithbalance(mim_pool, data['MIMtoken0'], data['MIMtoken1'], data['MIMtokenswap'])
+        dealwithbalance(renBTC_pool, data['RENBTCtoken0'], data['RENBTCtoken1'], data['RENBTCtokenswap'])
+        try:
+            gno_pool.token0_bal = gno_pool.contract.caller.balances(0) / 10**gno_pool.token0_decimal
+            gno_pool.token1_bal = gno_pool.contract.caller.balances(1) / 10**gno_pool.token1_decimal
+            gno_pool.token2_bal = gno_pool.contract.caller.balances(2) / 10**gno_pool.token2_decimal
+            total = gno_pool.token0_bal + gno_pool.token1_bal + gno_pool.token2_bal
+            gno_pool.token0_per = round(gno_pool.token0_bal / total * 100, 2)
+            gno_pool.token1_per = round(gno_pool.token1_bal / total * 100, 2)
+            gno_pool.token2_per = round(gno_pool.token2_bal / total * 100, 2)
+            gno_pool.ratio = [gno_pool.token0_per,gno_pool.token1_per,gno_pool.token2_per]
+            print(gno_pool.token0_bal)
+            print(gno_pool.token1_bal)
+            print(gno_pool.token2_bal)
+        except:
+            print('errorr')
+        print('listen')
+        time.sleep(10)
 
-    asyncio.ensure_future(three_pool.listen())
-    asyncio.ensure_future(gno_pool.listen())
-    asyncio.ensure_future(frax_pool.listen())
-    asyncio.ensure_future(steth_pool.listen())
-    asyncio.ensure_future(usdd_pool.listen())
-    asyncio.ensure_future(renBTC_pool.listen())
-    asyncio.ensure_future(cvxCRV_pool.listen())
-    asyncio.ensure_future(lusd_pool.listen())
-    asyncio.ensure_future(mim_pool.listen())
-    print('All started listening!')
+async def update_balance(context: ContextTypes):
+    await asyncio.gather(three_pool .updateBalance(),
+        gno_pool.updateBalance(),
+        frax_pool.updateBalance(),
+        steth_pool.updateBalance(),
+        usdd_pool.updateBalance(),
+        renBTC_pool.updateBalance(),
+        cvxCRV_pool.updateBalance(),
+        lusd_pool.updateBalance(),
+        mim_pool.updateBalance())
+    print('checking for alerts to trigger')
 
 async def reserves(update: Update, context: ContextTypes):
     print(update.message.text.split(" ")[1:])
@@ -285,7 +319,6 @@ async def reserves(update: Update, context: ContextTypes):
         )
     except:
         return await update.message.reply_text('Error')
-        
 
 async def addalert(update: Update, context: ContextTypes):
     chat_id=update.effective_chat.id
@@ -369,6 +402,28 @@ async def getalert(update: Update, context: ContextTypes):
         return await update.message.reply_text('Error')
 
 def main() -> None:
+    global three_pool
+    global gno_pool
+    global frax_pool
+    global steth_pool
+    global usdd_pool
+    global renBTC_pool
+    global cvxCRV_pool
+    global lusd_pool
+    global mim_pool
+    three_pool = threepool('3pool', '0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7', 'eth')
+    gno_pool = threepool('gnopool', '0x7f90122BF0700F9E7e1F688fe926940E8839F353', 'gno')
+    frax_pool = pool('frax','0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B')
+    steth_pool = pool('steth','0xDC24316b9AE028F1497c275EB9192a3Ea0f67022')
+    usdd_pool = pool('usdd','0xe6b5CC1B4b47305c58392CE3D359B10282FC36Ea')
+    renBTC_pool = pool('renBTC', '0x93054188d876f558f4a66B2EF1d97d16eDf0895B')
+    cvxCRV_pool = pool('cvxCRV', '0x9D0464996170c6B9e75eED71c68B99dDEDf279e8')
+    lusd_pool = pool('LUSD', '0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA')
+    mim_pool = pool('MIM', '0x5a6A4D54456819380173272A5E8E9B9904BdF41B')
+    print('Pools all initialized')
+    global current_pools
+    current_pools = [frax_pool,usdd_pool,steth_pool,renBTC_pool,cvxCRV_pool,lusd_pool,mim_pool]
+
     """Start the bot."""
     # Create the Application and pass it your bot's token.
     application = Application.builder().token(BOT_KEY).build()
@@ -378,10 +433,12 @@ def main() -> None:
     application.add_handler(CommandHandler("addalert", addalert))
     application.add_handler(CommandHandler("removealert", removealert))
     application.add_handler(CommandHandler("getalert", getalert))
-    job_queue.run_once(start_listening,60)
+    Thread(target = listening, daemon=True).start()
+    job_queue.run_repeating(update_balance,10)
     global bot 
     bot = application.bot
     # Run the bot until the user presses Ctrl-C
     application.run_polling(1)
-    
-main()
+
+if __name__ == '__main__':    
+    main()
