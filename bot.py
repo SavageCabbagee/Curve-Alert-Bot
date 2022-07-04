@@ -3,6 +3,7 @@ import sqlite as sql
 import asyncio
 from web3 import Web3
 
+import logging
 from threading import Thread
 from multicall import Call, Multicall
 import time 
@@ -15,6 +16,7 @@ from dotenv import dotenv_values
 config = dotenv_values(".env")
 RPC_KEY = config['RPC_API']
 BOT_KEY = config['BOT_API']
+logging.basicConfig(filename='logs.log', level = logging.ERROR, format = '%(asctime)s.%(msecs)03d %(funcName)s: %(message)s', datefmt = '%Y-%m-%d %H:%M:%S', )
 
 w3 = Web3(Web3.HTTPProvider(f'https://eth-mainnet.alchemyapi.io/v2/{RPC_KEY}'))
 gnosis = Web3(Web3.HTTPProvider('https://rpc.ankr.com/gnosis'))
@@ -25,6 +27,14 @@ balance_ABI = [
   {"inputs":[{"type":"int128","name":"i"},{"type":"int128","name":"j"},{"type":"uint256","name":"dx"}],"name":"get_dy","outputs":[{"type":"uint256","name":""}],"stateMutability":"view","type":"function"},
   {"inputs":[],"name":"get_virtual_price","outputs":[{"type":"uint256","name":""}],"stateMutability":"view","type":"function"}
 ]
+
+fraxbp_ABI = [
+  {"inputs":[{"type":"uint256","name":"arg0"}],"name":"balances","outputs":[{"type":"uint256","name":""}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"type":"uint256","name":"arg0"}],"name":"coins","outputs":[{"type":"address","name":""}],"stateMutability":"view","type":"function"},
+  {"inputs":[{"type":"int128","name":"i"},{"type":"int128","name":"j"},{"type":"uint256","name":"_dx"}],"name":"get_dy","outputs":[{"type":"uint256","name":""}],"stateMutability":"view","type":"function"},
+  {"inputs":[],"name":"get_virtual_price","outputs":[{"type":"uint256","name":""}],"stateMutability":"view","type":"function"}
+]
+
 
 renBTC_ABI =  [
   {"inputs":[{"type":"int128","name":"arg0"}],"name":"coins","outputs":[{"type":"address","name":""}],"constant":True,"payable":False,"type":"function"},
@@ -42,6 +52,8 @@ class pool:
         self.contract_addy = contract
         if (contract == '0x93054188d876f558f4a66B2EF1d97d16eDf0895B'):
             self.contract = w3.eth.contract(address = self.contract_addy, abi = renBTC_ABI)
+        elif (contract == '0xDcEF968d416a41Cdac0ED8702fAC8128A64241A2'):
+            self.contract = w3.eth.contract(address = self.contract_addy, abi = fraxbp_ABI)
         else:
             self.contract = w3.eth.contract(address = self.contract_addy, abi = balance_ABI)
         
@@ -217,7 +229,10 @@ def listening():
             Call(mim_pool.contract_addy,['get_dy(int128,int128,uint256)(uint256)',0,1,int((10**(mim_pool.token0_decimal)))],[['MIMtokenswap',None]]),
             Call(renBTC_pool.contract_addy,['balances(int128)(uint256)', 0],[['RENBTCtoken0',None]]),
             Call(renBTC_pool.contract_addy,['balances(int128)(uint256)', 1],[['RENBTCtoken1',None]]),
-            Call(renBTC_pool.contract_addy,['get_dy(int128,int128,uint256)(uint256)',0,1,int((10**(renBTC_pool.token0_decimal)))],[['RENBTCtokenswap',None]])
+            Call(renBTC_pool.contract_addy,['get_dy(int128,int128,uint256)(uint256)',0,1,int((10**(renBTC_pool.token0_decimal)))],[['RENBTCtokenswap',None]]),
+            Call(frax_bp.contract_addy,['balances(uint256)(uint256)', 0],[['FRAXBPtoken0',None]]),
+            Call(frax_bp.contract_addy,['balances(uint256)(uint256)', 1],[['FRAXBPtoken1',None]]),
+            Call(frax_bp.contract_addy,['get_dy(int128,int128,uint256)(uint256)',0,1,int((10**(frax_bp.token0_decimal)))],[['FRAXBPtokenswap',None]])
             ], _w3 = w3)
         data = multi()
         three_pool.token0_bal = data['three_pooltoken0'] / 10**three_pool.token0_decimal
@@ -240,6 +255,7 @@ def listening():
         dealwithbalance(lusd_pool, data['LUSDtoken0'], data['LUSDtoken1'], data['LUSDtokenswap'])
         dealwithbalance(mim_pool, data['MIMtoken0'], data['MIMtoken1'], data['MIMtokenswap'])
         dealwithbalance(renBTC_pool, data['RENBTCtoken0'], data['RENBTCtoken1'], data['RENBTCtokenswap'])
+        dealwithbalance(frax_bp, data['FRAXBPtoken0'], data['FRAXBPtoken1'], data['FRAXBPtokenswap'])
         try:
             gno_pool.token0_bal = gno_pool.contract.caller.balances(0) / 10**gno_pool.token0_decimal
             gno_pool.token1_bal = gno_pool.contract.caller.balances(1) / 10**gno_pool.token1_decimal
@@ -253,8 +269,9 @@ def listening():
             print(gno_pool.token1_bal)
             print(gno_pool.token2_bal)
         except:
-            print('errorr')
+            logging.error('error with gno')
         print('listen')
+        logging.error('listening')
         time.sleep(10)
 
 async def update_balance(context: ContextTypes):
@@ -266,8 +283,10 @@ async def update_balance(context: ContextTypes):
         renBTC_pool.updateBalance(),
         cvxCRV_pool.updateBalance(),
         lusd_pool.updateBalance(),
-        mim_pool.updateBalance())
+        mim_pool.updateBalance(),
+        frax_bp.updateBalance())
     print('checking for alerts to trigger')
+    logging.error('checking alerts')
 
 async def reserves(update: Update, context: ContextTypes):
     print(update.message.text.split(" ")[1:])
@@ -309,7 +328,7 @@ async def reserves(update: Update, context: ContextTypes):
                             message.append(
                                 f'{pool_.token0}: {pool_.token0_bal:,} ({pool_.ratio[0]}%)\n{pool_.token1}: {pool_.token1_bal:,} ({pool_.ratio[1]}%)\n1 {pool_.token0} -> {pool_.swap_price} {pool_.token1}'
                             )
-            if text == texts[-1] and message != []:
+            if text == (texts[-1]).lower() and message != []:
                 return await update.message.reply_text('\n\n'.join(message))
 
         for pool_ in current_pools:
@@ -345,8 +364,8 @@ async def addalert(update: Update, context: ContextTypes):
                 print(text)
                 if (text[0].lower() == pool_.pool_name):
                     if ((text[1] == '0') or (text[2] == '0')):
-                        sql.addAlert(text[0], chat_id, text[1], text[2])
-                        return await update.message.reply_text(f'{text[0]} alert added!')
+                        sql.addAlert(text[0].lower(), chat_id, text[1], text[2])
+                        return await update.message.reply_text(f'{text[0].lower()} alert added!')
                     else:
                         return await update.message.reply_text('Error, 1 of the token balance must be 0!')
         return await update.message.reply_text('Error, No such pool!')
@@ -414,6 +433,7 @@ def main() -> None:
     global cvxCRV_pool
     global lusd_pool
     global mim_pool
+    global frax_bp
     three_pool = threepool('3pool', '0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7', 'eth')
     gno_pool = threepool('gnopool', '0x7f90122BF0700F9E7e1F688fe926940E8839F353', 'gno')
     frax_pool = pool('frax','0xd632f22692FaC7611d2AA1C0D552930D43CAEd3B')
@@ -423,9 +443,10 @@ def main() -> None:
     cvxCRV_pool = pool('cvxCRV', '0x9D0464996170c6B9e75eED71c68B99dDEDf279e8')
     lusd_pool = pool('LUSD', '0xEd279fDD11cA84bEef15AF5D39BB4d4bEE23F0cA')
     mim_pool = pool('MIM', '0x5a6A4D54456819380173272A5E8E9B9904BdF41B')
+    frax_bp = pool('FRAXBP', '0xDcEF968d416a41Cdac0ED8702fAC8128A64241A2')
     print('Pools all initialized')
     global current_pools
-    current_pools = [frax_pool,usdd_pool,steth_pool,renBTC_pool,cvxCRV_pool,lusd_pool,mim_pool]
+    current_pools = [frax_pool,usdd_pool,steth_pool,renBTC_pool,cvxCRV_pool,lusd_pool,mim_pool,frax_bp]
 
     """Start the bot."""
     # Create the Application and pass it your bot's token.
@@ -436,7 +457,7 @@ def main() -> None:
     application.add_handler(CommandHandler("addalert", addalert))
     application.add_handler(CommandHandler("removealert", removealert))
     application.add_handler(CommandHandler("getalert", getalert))
-    Thread(target = listening, daemon=True).start()
+    Thread(target = listening).start()
     job_queue.run_repeating(update_balance,10)
     global bot 
     bot = application.bot
