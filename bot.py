@@ -202,7 +202,6 @@ def dealwithbalance(pool_,token0,token1,swap):
     print(pool_.token1_bal)
     print(pool_.pool_name)
 
-
 def listening():
     while True:
         multi = Multicall([
@@ -423,6 +422,17 @@ async def getalert(update: Update, context: ContextTypes):
     except:
         return await update.message.reply_text('Error')
 
+async def ensure_thread(context: ContextTypes):
+    global t1
+    print('ensure')
+    print(t1)
+    print(t1.is_alive())
+    logging.error(f'thread is {t1.is_alive()}')
+    if t1.is_alive() == False:
+        t1 = Thread(target = listening)
+        t1.start()
+        logging.error(f'thread restarted')
+
 def main() -> None:
     global three_pool
     global gno_pool
@@ -457,12 +467,17 @@ def main() -> None:
     application.add_handler(CommandHandler("addalert", addalert))
     application.add_handler(CommandHandler("removealert", removealert))
     application.add_handler(CommandHandler("getalert", getalert))
-    Thread(target = listening).start()
+    global t1
+    t1 = Thread(target = listening)
+    t1.start()
+    print(t1.is_alive())
     job_queue.run_repeating(update_balance,10)
+    job_queue.run_repeating(ensure_thread,10)
     global bot 
     bot = application.bot
     # Run the bot until the user presses Ctrl-C
     application.run_polling(1)
+
 
 if __name__ == '__main__':    
     main()
